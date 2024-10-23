@@ -19,7 +19,7 @@ let variables = {}; // Aquí almacenaremos las variables definidas por el usuari
 
 onMounted(() => {
   editor = monaco.editor.create(editorContainer.value, {
-    value: 'var1 = 10\nvar2 = 5\nSUMA(var1, var2)', // Contenido inicial con variables y fórmula
+    value: '', // Contenido inicial con variables y fórmula
     language: 'plaintext',
     theme: 'vs-light',
     fontSize: 20, // Tamaño de fuente
@@ -93,7 +93,25 @@ onMounted(() => {
           kind: monaco.languages.CompletionItemKind.Keyword,
           insertText: 'falso',
           documentation: 'Palabra clave: falso'
-        }
+        },
+        {
+        label: 'contrato',
+        kind: monaco.languages.CompletionItemKind.Property,
+        insertText: 'contrato',
+        documentation: 'Objeto contrato'
+      },
+      {
+        label: 'contrato.tipoContrato',
+        kind: monaco.languages.CompletionItemKind.Property,
+        insertText: 'contrato.tipoContrato',
+        documentation: 'Propiedad tipoContrato del objeto contrato'
+      },
+      {
+        label: 'contrato.tipoContrato.nombre',
+        kind: monaco.languages.CompletionItemKind.Property,
+        insertText: 'contrato.tipoContrato.nombre',
+        documentation: 'Propiedad nombre del objeto tipoContrato'
+      },
       ];
 
       Object.keys(variables).forEach(varName => {
@@ -111,13 +129,21 @@ onMounted(() => {
   });
 
   // Resaltado de sintaxis para las funciones y palabras clave
-  monaco.languages.setMonarchTokensProvider('plaintext', {
-    tokenizer: {
-      root: [
-        [/\b(SI|SUMA|RESTAR|MULTIPLICAR|DIVIDIR|PROMEDIO|ENTRE|verdadero|falso)\b/, 'keyword'],
-      ],
-    },
-  });
+monaco.languages.setMonarchTokensProvider('plaintext', {
+  tokenizer: {
+    root: [
+      // Palabras clave o funciones como SI, SUMA, RESTAR, etc.
+      [/\b(SI|SUMA|RESTAR|MULTIPLICAR|DIVIDIR|PROMEDIO|ENTRE|verdadero|falso)\b/, 'keyword'],
+
+      // Resaltado para variables simples o anidadas, como contrato, contrato.tipoContrato.nombre
+      [/\b(\w+(\.\w+)+)\b/, 'variable'],
+
+      // Puedes agregar otras reglas para operadores o números si es necesario
+      [/[0-9]+/, 'number'],
+      [/[=+\-*/]/, 'operator'],
+    ],
+  },
+});
 
   // Validación y extracción de variables cada vez que cambia el contenido del editor
   editor.onDidChangeModelContent(() => {
@@ -138,14 +164,23 @@ const validateAndExtractVariables = (formula) => {
   variables = {};
   const lines = formula.split('\n');
 
-  for (let line of lines) {
+  for (let lineNumber = 0; lineNumber < lines.length; lineNumber++) {
+    const line = lines[lineNumber];
     const variableMatch = line.match(/(\w+)\s*=\s*(.+)/);
+    
     if (variableMatch) {
       const [_, varName, varValue] = variableMatch;
-      if (isNaN(varValue.trim())) {
-        errorMessage.value = `Error en la asignación de la variable: "${line.trim()}"`;
+
+      // Validamos si el valor es una fórmula o un número
+      const isFormula = varValue.match(/\b(SUMA|RESTAR|MULTIPLICAR|DIVIDIR|PROMEDIO|ENTRE|SI)\b/);
+      const isNumber = !isNaN(varValue.trim());
+
+      // Si no es ni fórmula ni número, es un error
+      if (!isFormula && !isNumber) {
+        errorMessage.value = `Error en la línea ${lineNumber + 1}: Asignación incorrecta en "${line.trim()}"`;
         return;
       }
+      
       variables[varName.trim()] = varValue.trim(); // Guardamos la variable
     }
   }
